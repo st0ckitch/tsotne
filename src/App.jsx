@@ -3,7 +3,7 @@ import GameBoard3D from './components/GameBoard3D';
 
 const App = () => {
   return (
-    <div className="App">
+    <div className="App w-screen h-screen">
       <GameBoard3D />
     </div>
   );
