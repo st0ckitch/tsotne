@@ -45,12 +45,22 @@ const GameBoard = () => {
   const playCard = (card) => {
     if (!isPlayerTurn || card.mana > playerMana) return;
     
+    // Deduct mana cost
     setPlayerMana(prev => prev - card.mana);
+    
+    // Remove card from hand
     setPlayerHand(prev => prev.filter(c => c.id !== card.id));
     
     if (card.type === 'minion') {
       if (playerField.length < 7) {
-        setPlayerField(prev => [...prev, { ...card, currentHealth: card.health }]);
+        // Add the card to the field with currentHealth property
+        const playedCard = {
+          ...card,
+          currentHealth: card.health,
+          canAttack: false, // Can't attack on the turn it's played (unless it has charge)
+          id: card.id + Date.now() // Ensure unique key for rendering
+        };
+        setPlayerField(prev => [...prev, playedCard]);
       }
     } else if (card.type === 'spell') {
       handleSpellEffects(card);
@@ -105,15 +115,18 @@ const GameBoard = () => {
     // Reset minion states
     setPlayerField(prev => prev.map(minion => ({
       ...minion,
-      canAttack: false,
+      canAttack: true,
       frozen: false
     })));
 
     // Handle turn transition
     setIsPlayerTurn(false);
     setTurn(prev => prev + 1);
-    setMaxMana(prev => Math.min(10, prev + 1));
-    setPlayerMana(Math.min(10, turn + 1));
+    
+    // Increase max mana and restore mana (max 10)
+    const newMaxMana = Math.min(10, maxMana + 1);
+    setMaxMana(newMaxMana);
+    setPlayerMana(0); // Set to 0 during enemy turn
     
     // Draw a card for next turn
     drawCard();
@@ -131,9 +144,9 @@ const GameBoard = () => {
 
     aiPlay();
 
-    // End enemy turn
+    // End enemy turn and restore player's mana
     setIsPlayerTurn(true);
-    setPlayerMana(maxMana);
+    setPlayerMana(maxMana); // Restore full mana at the start of player's turn
   };
 
   const attackWithMinion = (attackingMinion, target) => {
@@ -185,7 +198,7 @@ const GameBoard = () => {
         {playerField.map(card => (
           <Card 
             key={card.id} 
-            card={card} 
+            card={{...card, health: card.currentHealth}} 
             isPlayable={false}
             isInField={true}
           />
