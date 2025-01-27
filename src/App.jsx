@@ -1,10 +1,10 @@
 import React from 'react';
-import GameBoard from './components/GameBoard';
+import GameBoard3D from './components/GameBoard3D';
 
 const App = () => {
   return (
     <div className="App">
-      <GameBoard />
+      <GameBoard3D />
     </div>
   );
 };
