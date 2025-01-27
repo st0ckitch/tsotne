@@ -1,12 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Sparkles } from '@react-three/drei';
+import { PerspectiveCamera, Stars } from '@react-three/drei';
 import Cell from './Cell';
 import Player from './Player';
 import { generateBoard } from '../data/cells';
 
-const CELL_SPACING = 3;
-const CELLS_PER_ROW = 10;
+const CELL_SPACING = 2.2; // Adjusted for hexagonal grid
 
 const GameBoard3D = () => {
   const [board] = useState(generateBoard());
@@ -16,7 +15,6 @@ const GameBoard3D = () => {
   const [botHealth, setBotHealth] = useState(10);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
   const [gameLog, setGameLog] = useState([]);
-  const controlsRef = useRef();
 
   const addToLog = (message) => {
     setGameLog(prev => [message, ...prev.slice(0, 4)]);
@@ -35,43 +33,34 @@ const GameBoard3D = () => {
     setTimeout(botTurn, 1500);
   };
 
-  const botTurn = () => {
-    const roll = Math.floor(Math.random() * 6) + 1;
-    addToLog(`🤖 Bot rolled a ${roll}!`);
+  // Calculate hexagonal grid position
+  const getHexPosition = (index) => {
+    const row = Math.floor(index / 10);
+    const col = index % 10;
+    // Offset every other row for hexagonal pattern
+    const xOffset = row % 2 ? CELL_SPACING / 2 : 0;
     
-    const newPosition = Math.min(49, botPosition + roll);
-    setBotPosition(newPosition);
-    
-    handleCellEffect(board[newPosition], true);
-    setIsPlayerTurn(true);
-  };
-
-  const handleCellEffect = (cell, isBot = false) => {
-    const target = isBot ? setBotHealth : setPlayerHealth;
-    
-    if (cell.type === 'goblin') {
-      const damage = Math.floor(Math.random() * 3) + 1;
-      target(prev => Math.max(0, prev - damage));
-      addToLog(`👺 Goblin attacks for ${damage} damage!`);
-    } else if (cell.type === 'buff' || cell.type === 'debuff') {
-      target(prev => Math.max(0, prev + cell.value));
-      addToLog(`${cell.effect}: ${cell.description}`);
-    }
+    return [
+      col * CELL_SPACING + xOffset,
+      0,
+      row * CELL_SPACING * 0.866 // Height of hexagon = side length * √3/2
+    ];
   };
 
   return (
     <div className="h-screen w-screen flex flex-col">
       {/* Game UI */}
       <div className="absolute top-0 left-0 p-4 z-10 text-white">
-        <div className="bg-black bg-opacity-50 p-4 rounded">
-          <div>Player HP: {playerHealth}</div>
-          <div>Bot HP: {botHealth}</div>
+        <div className="bg-black bg-opacity-50 p-4 rounded-lg border border-gray-600">
+          <div className="text-xl mb-2">Player HP: {playerHealth}</div>
+          <div className="text-xl mb-4">Bot HP: {botHealth}</div>
           <button
             onClick={rollDice}
             disabled={!isPlayerTurn}
-            className={`mt-4 px-4 py-2 rounded ${
-              isPlayerTurn ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-500'
-            }`}
+            className={`px-6 py-3 rounded-lg font-bold transition-colors
+              ${isPlayerTurn 
+                ? 'bg-yellow-600 hover:bg-yellow-700 text-white' 
+                : 'bg-gray-600 text-gray-400 cursor-not-allowed'}`}
           >
             Roll Dice
           </button>
@@ -80,44 +69,50 @@ const GameBoard3D = () => {
 
       {/* Game Log */}
       <div className="absolute bottom-0 left-0 p-4 z-10">
-        <div className="bg-black bg-opacity-50 p-4 rounded text-white">
+        <div className="bg-black bg-opacity-50 p-4 rounded-lg border border-gray-600 text-white">
+          <h3 className="text-lg font-bold mb-2">Game Log</h3>
           {gameLog.map((log, i) => (
-            <div key={i}>{log}</div>
+            <div key={i} className="text-sm mb-1">{log}</div>
           ))}
         </div>
       </div>
 
       {/* 3D Scene */}
       <Canvas shadows>
-        <PerspectiveCamera makeDefault position={[0, 20, 20]} />
-        <OrbitControls
-          ref={controlsRef}
-          maxPolarAngle={Math.PI / 2}
-          minDistance={10}
-          maxDistance={50}
+        {/* Fixed isometric camera */}
+        <PerspectiveCamera
+          makeDefault
+          position={[20, 20, 20]}
+          fov={50}
+          rotation={[-Math.PI / 4, Math.PI / 4, 0]}
         />
         
         <ambientLight intensity={0.5} />
         <directionalLight
-          position={[10, 10, 10]}
+          position={[10, 20, 10]}
+          intensity={1}
           castShadow
           shadow-mapSize={[2048, 2048]}
         />
 
-        <Sparkles count={100} scale={50} size={2} speed={0.5} />
+        {/* Medieval atmosphere */}
+        <fog attach="fog" args={['#2d3748', 30, 50]} />
+        <Stars radius={100} depth={50} count={5000} factor={4} />
         
-        {/* Dungeon Path */}
-        <group position={[-CELLS_PER_ROW * CELL_SPACING / 2, 0, 0]}>
+        {/* Dungeon floor */}
+        <mesh rotation-x={-Math.PI / 2} position={[0, -0.5, 0]} receiveShadow>
+          <planeGeometry args={[100, 100]} />
+          <meshStandardMaterial color="#1a202c" roughness={1} metalness={0} />
+        </mesh>
+
+        {/* Game board */}
+        <group position={[-10, 0, -10]}>
           {board.map((cell, index) => {
-            const row = Math.floor(index / CELLS_PER_ROW);
-            const col = index % CELLS_PER_ROW;
-            const x = col * CELL_SPACING;
-            const z = row * CELL_SPACING;
-            
+            const [x, y, z] = getHexPosition(index);
             return (
               <Cell
                 key={index}
-                position={[x, 0, z]}
+                position={[x, y, z]}
                 cellData={cell}
                 isPlayerHere={playerPosition === index}
                 isBotHere={botPosition === index}
@@ -128,28 +123,18 @@ const GameBoard3D = () => {
           {/* Players */}
           <Player
             position={[
-              (playerPosition % CELLS_PER_ROW) * CELL_SPACING,
-              1,
-              Math.floor(playerPosition / CELLS_PER_ROW) * CELL_SPACING
+              ...getHexPosition(playerPosition)
             ]}
             color="blue"
           />
           
           <Player
             position={[
-              (botPosition % CELLS_PER_ROW) * CELL_SPACING,
-              1,
-              Math.floor(botPosition / CELLS_PER_ROW) * CELL_SPACING
+              ...getHexPosition(botPosition)
             ]}
             color="red"
           />
         </group>
-
-        {/* Ground */}
-        <mesh rotation-x={-Math.PI / 2} position={[0, -0.5, 0]} receiveShadow>
-          <planeGeometry args={[100, 100]} />
-          <meshStandardMaterial color="#1a1a1a" />
-        </mesh>
       </Canvas>
     </div>
   );
