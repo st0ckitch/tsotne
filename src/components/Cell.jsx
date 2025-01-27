@@ -6,6 +6,7 @@ import * as THREE from 'three';
 const Cell = ({ position, cellData, isPlayerHere, isBotHere }) => {
   const meshRef = useRef();
   const glowRef = useRef();
+  const timeRef = useRef(0);
 
   // Create pentagon shape
   const pentagonShape = useMemo(() => {
@@ -44,6 +45,8 @@ const Cell = ({ position, cellData, isPlayerHere, isBotHere }) => {
 
   // Animation
   useFrame((state) => {
+    timeRef.current = state.clock.elapsedTime;
+    
     if (meshRef.current) {
       if (cellData.type !== 'normal') {
         meshRef.current.rotation.y += 0.01;
@@ -108,7 +111,10 @@ const Cell = ({ position, cellData, isPlayerHere, isBotHere }) => {
       {cellData.type === 'goblin' && (
         <group ref={glowRef}>
           <pointLight color="#eab308" intensity={2} distance={2} />
-          <mesh position={[0, 1, 0]} rotation={[0, state.clock.elapsedTime, 0]}>
+          <mesh 
+            position={[0, 1, 0]} 
+            rotation={[0, timeRef.current, 0]}
+          >
             <tetrahedronGeometry args={[0.2]} />
             <meshBasicMaterial color="#eab308" />
           </mesh>
@@ -118,7 +124,7 @@ const Cell = ({ position, cellData, isPlayerHere, isBotHere }) => {
       {/* Cell number */}
       <group position={[0, 0.2, 0]}>
         <mesh>
-          <textGeometry args={[cellData.id.toString(), {
+          <textGeometry args={[String(cellData.id), {
             size: 0.3,
             height: 0.1
           }]} />
