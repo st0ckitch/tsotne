@@ -1,12 +1,12 @@
 import React from 'react';
-import GameBoard3D from './components/GameBoard3D';
+import GameBoard from './components/GameBoard';
 
-const App = () => {
+function App() {
   return (
-    <div className="App w-screen h-screen">
-      <GameBoard3D />
+    <div className="App">
+      <GameBoard />
     </div>
   );
-};
+}
 
 export default App;
