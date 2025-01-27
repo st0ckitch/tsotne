@@ -13,6 +13,9 @@
     "@heroicons/react": "^2.0.18",
     "leva": "^0.9.35"
   },
+  "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11"
+  },
   "scripts": {
     "dev": "react-scripts start",
     "build": "react-scripts build",
