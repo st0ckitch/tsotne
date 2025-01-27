@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Text } from '@react-three/drei';
 import { useRef } from 'react';
 import * as THREE from 'three';
 
@@ -122,15 +123,13 @@ const Cell = ({ position, cellData, isPlayerHere, isBotHere }) => {
       )}
 
       {/* Cell number */}
-      <group position={[0, 0.2, 0]}>
-        <mesh>
-          <textGeometry args={[String(cellData.id), {
-            size: 0.3,
-            height: 0.1
-          }]} />
-          <meshStandardMaterial color="white" />
-        </mesh>
-      </group>
+      <Text
+        position={[0, 0.2, 0]}
+        fontSize={0.5}
+        color="white"
+      >
+        {cellData.id.toString()}
+      </Text>
     </group>
   );
 };
