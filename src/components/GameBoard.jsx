@@ -62,6 +62,19 @@ const GameBoard = () => {
       case 'Fireball':
         setEnemyHealth(prev => prev - 6);
         break;
+      case 'Healing Rain':
+        setPlayerHealth(prev => Math.min(30, prev + 8));
+        break;
+      case 'Holy Nova':
+        setEnemyField(prev => prev.map(minion => ({
+          ...minion,
+          currentHealth: minion.currentHealth - 2
+        })));
+        setPlayerField(prev => prev.map(minion => ({
+          ...minion,
+          currentHealth: Math.min(minion.health, minion.currentHealth + 2)
+        })));
+        break;
       case 'Flame Strike':
         setEnemyField(prev => prev.map(minion => ({
           ...minion,
@@ -214,16 +227,3 @@ const GameBoard = () => {
 };
 
 export default GameBoard;
-      case 'Healing Rain':
-        setPlayerHealth(prev => Math.min(30, prev + 8));
-        break;
-      case 'Holy Nova':
-        setEnemyField(prev => prev.map(minion => ({
-          ...minion,
-          currentHealth: minion.currentHealth - 2
-        })));
-        setPlayerField(prev => prev.map(minion => ({
-          ...minion,
-          currentHealth: Math.min(minion.health, minion.currentHealth + 2)
-        })));
-        break;
