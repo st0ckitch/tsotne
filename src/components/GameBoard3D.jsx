@@ -1,134 +1,127 @@
 import React, { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrthographicCamera } from '@react-three/drei';
 import Cell from './Cell';
-import Player from './Player';
-import { generateBoard } from '../data/cells';
-
-const CELL_SPACING = 2.2;
 
 const GameBoard3D = () => {
-  const [board] = useState(generateBoard());
-  const [playerPosition, setPlayerPosition] = useState(0);
-  const [botPosition, setBotPosition] = useState(0);
   const [playerHealth, setPlayerHealth] = useState(10);
   const [botHealth, setBotHealth] = useState(10);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+  const [playerPosition, setPlayerPosition] = useState(0);
+  const [botPosition, setBotPosition] = useState(0);
   const [gameLog, setGameLog] = useState([]);
 
-  const addToLog = (message) => {
-    setGameLog(prev => [message, ...prev.slice(0, 4)]);
+  // Create the board array of 50 cells
+  const board = Array(50).fill(null).map((_, index) => ({
+    id: index,
+    type: 'normal'
+  }));
+
+  // Add special cells (this would normally be in cells.js)
+  const addSpecialCells = () => {
+    // Add 2 buff cells
+    board[5] = { id: 5, type: 'buff', effect: 'Healing Potion', value: 3 };
+    board[15] = { id: 15, type: 'buff', effect: 'Shield', value: 5 };
+
+    // Add 2 debuff cells
+    board[10] = { id: 10, type: 'debuff', effect: 'Poison', value: -2 };
+    board[20] = { id: 20, type: 'debuff', effect: 'Trap', value: -4 };
+
+    // Add 7 goblin cells
+    [7, 12, 18, 25, 32, 38, 45].forEach(pos => {
+      board[pos] = { id: pos, type: 'goblin' };
+    });
   };
 
-  const handleCellEffect = (cell, isBot = false) => {
-    const target = isBot ? setBotHealth : setPlayerHealth;
+  addSpecialCells();
+
+  const rollDice = () => {
+    if (!isPlayerTurn) return;
     
-    if (cell.type === 'goblin') {
+    const roll = Math.floor(Math.random() * 6) + 1;
+    const newPosition = Math.min(49, playerPosition + roll);
+    setPlayerPosition(newPosition);
+    setGameLog(prev => [`You rolled a ${roll}!`, ...prev.slice(0, 3)]);
+
+    // Handle cell effects
+    const currentCell = board[newPosition];
+    if (currentCell.type === 'goblin') {
       const damage = Math.floor(Math.random() * 3) + 1;
-      target(prev => Math.max(0, prev - damage));
-      addToLog(`👺 Goblin attacks for ${damage} damage!`);
-    } else if (cell.type === 'buff' || cell.type === 'debuff') {
-      target(prev => Math.max(0, prev + cell.value));
-      addToLog(`${cell.effect}: ${cell.description}`);
+      setPlayerHealth(prev => Math.max(0, prev - damage));
+      setGameLog(prev => [`Goblin deals ${damage} damage!`, ...prev]);
     }
+
+    setIsPlayerTurn(false);
+    setTimeout(botTurn, 1000);
   };
 
   const botTurn = () => {
     const roll = Math.floor(Math.random() * 6) + 1;
-    addToLog(`🤖 Bot rolled a ${roll}!`);
-    
     const newPosition = Math.min(49, botPosition + roll);
     setBotPosition(newPosition);
-    
-    handleCellEffect(board[newPosition], true);
+    setGameLog(prev => [`Bot rolled a ${roll}!`, ...prev.slice(0, 3)]);
+
+    // Handle cell effects
+    const currentCell = board[newPosition];
+    if (currentCell.type === 'goblin') {
+      const damage = Math.floor(Math.random() * 3) + 1;
+      setBotHealth(prev => Math.max(0, prev - damage));
+      setGameLog(prev => [`Goblin deals ${damage} damage to bot!`, ...prev]);
+    }
+
     setIsPlayerTurn(true);
   };
 
-  const rollDice = () => {
-    if (!isPlayerTurn) return;
-    const roll = Math.floor(Math.random() * 6) + 1;
-    addToLog(`🎲 You rolled a ${roll}!`);
-    
-    const newPosition = Math.min(49, playerPosition + roll);
-    setPlayerPosition(newPosition);
-    
-    handleCellEffect(board[newPosition]);
-    setIsPlayerTurn(false);
-    setTimeout(botTurn, 1500);
-  };
-
-  const getHexPosition = (index) => {
-    const row = Math.floor(index / 10);
-    const col = index % 10;
-    return [
-      col * CELL_SPACING + (row % 2 ? CELL_SPACING / 2 : 0),
-      0,
-      row * CELL_SPACING * 0.866
-    ];
-  };
-
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#2d2d2d' }}>
-      {/* Game UI */}
-      <div className="absolute top-4 left-4 z-10">
-        <div className="bg-stone-900 bg-opacity-90 p-4 rounded-lg">
-          <div className="text-amber-200 text-xl">Player HP: {playerHealth}</div>
-          <div className="text-amber-200 text-xl mb-4">Bot HP: {botHealth}</div>
-          <button
-            onClick={rollDice}
-            disabled={!isPlayerTurn}
-            className="bg-amber-700 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded"
-          >
-            Roll Dice
-          </button>
-        </div>
+    <div className="w-screen h-screen bg-slate-800">
+      {/* 2D UI Elements */}
+      <div className="absolute top-4 left-4 text-white p-4 bg-slate-900 rounded-lg">
+        <div>Player HP: {playerHealth}</div>
+        <div>Bot HP: {botHealth}</div>
+        <button 
+          onClick={rollDice}
+          disabled={!isPlayerTurn}
+          className={`mt-2 px-4 py-2 rounded ${
+            isPlayerTurn 
+              ? 'bg-amber-600 hover:bg-amber-700' 
+              : 'bg-gray-600'
+          }`}
+        >
+          Roll Dice
+        </button>
       </div>
 
-      {/* Game Log */}
-      <div className="absolute bottom-4 left-4 z-10">
-        <div className="bg-stone-900 bg-opacity-90 p-4 rounded-lg">
-          <h3 className="text-amber-200 text-lg font-bold mb-2">Game Log</h3>
-          {gameLog.map((log, i) => (
-            <div key={i} className="text-amber-100">{log}</div>
-          ))}
-        </div>
+      <div className="absolute bottom-4 left-4 text-white p-4 bg-slate-900 rounded-lg">
+        <div className="font-bold mb-2">Game Log:</div>
+        {gameLog.map((log, index) => (
+          <div key={index}>{log}</div>
+        ))}
       </div>
 
-      {/* 3D Scene */}
-      <Canvas style={{ background: '#2d2d2d' }}>
-        <OrthographicCamera
-          makeDefault
-          position={[20, 20, 20]}
-          zoom={40}
-        />
-        
-        <ambientLight intensity={0.7} />
+      {/* 3D Game Board */}
+      <Canvas camera={{ position: [0, 15, 15], fov: 50 }}>
+        <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 5]} intensity={0.5} />
 
-        <group position={[-10, 0, -10]}>
-          {board.map((cell, index) => {
-            const [x, y, z] = getHexPosition(index);
-            return (
-              <Cell
-                key={index}
-                position={[x, y, z]}
-                cellData={cell}
-                isPlayerHere={playerPosition === index}
-                isBotHere={botPosition === index}
-              />
-            );
-          })}
+        {/* Board cells */}
+        {board.map((cell, index) => {
+          const row = Math.floor(index / 7);
+          const col = index % 7;
+          return (
+            <Cell
+              key={index}
+              position={[col * 2, 0, row * 2]}
+              cell={cell}
+              isPlayerHere={playerPosition === index}
+              isBotHere={botPosition === index}
+            />
+          );
+        })}
 
-          <Player
-            position={[...getHexPosition(playerPosition)]}
-            color="blue"
-          />
-          
-          <Player
-            position={[...getHexPosition(botPosition)]}
-            color="red"
-          />
-        </group>
+        {/* Simple ground plane */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[7, -0.5, 7]}>
+          <planeGeometry args={[20, 20]} />
+          <meshStandardMaterial color="#2d3748" />
+        </mesh>
       </Canvas>
     </div>
   );
