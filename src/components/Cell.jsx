@@ -7,7 +7,6 @@ import * as THREE from 'three';
 const Cell = ({ position, cellData, isPlayerHere, isBotHere }) => {
   const meshRef = useRef();
   const glowRef = useRef();
-  const timeRef = useRef(0);
 
   // Create hexagon shape
   const hexagonShape = useMemo(() => {
@@ -30,55 +29,30 @@ const Cell = ({ position, cellData, isPlayerHere, isBotHere }) => {
     return shape;
   }, []);
 
-  // Cell materials based on type
-  const materials = useMemo(() => {
-    const baseMaterial = new THREE.MeshStandardMaterial({
-      color: getCellColor(),
-      metalness: 0.3,
-      roughness: 0.7,
-      // Add stone texture effect
-      bumpScale: 0.5,
-    });
-
-    const edgeMaterial = new THREE.MeshStandardMaterial({
-      color: '#2d3748',
-      metalness: 0.5,
-      roughness: 0.8,
-    });
-
-    return [baseMaterial, edgeMaterial];
-  }, [cellData.type]);
-
   // Cell color based on type
-  function getCellColor() {
+  const getCellColor = () => {
     switch (cellData.type) {
       case 'buff':
-        return '#2d803d';
+        return '#2d503d';  // Dark green
       case 'debuff':
-        return '#8b2c2c';
+        return '#502d2d';  // Dark red
       case 'goblin':
-        return '#975a16';
+        return '#504d2d';  // Dark yellow
       default:
-        return '#4a5568';
+        return '#2d2d2d';  // Dark gray
     }
-  }
+  };
 
   // Animation
   useFrame((state) => {
-    timeRef.current = state.clock.elapsedTime;
-    
-    if (glowRef.current) {
-      if (cellData.type !== 'normal') {
-        glowRef.current.position.y = Math.sin(timeRef.current * 2) * 0.1 + 0.5;
-      }
+    if (glowRef.current && cellData.type !== 'normal') {
+      glowRef.current.position.y = Math.sin(state.clock.elapsedTime * 2) * 0.1 + 0.3;
     }
   });
 
-  const effectHeight = 0.5;
-
   return (
     <group position={position}>
-      {/* Base hexagonal cell */}
+      {/* Base hexagonal tile */}
       <mesh
         ref={meshRef}
         receiveShadow
@@ -88,7 +62,7 @@ const Cell = ({ position, cellData, isPlayerHere, isBotHere }) => {
           args={[
             hexagonShape,
             {
-              depth: 0.3,
+              depth: 0.1,
               bevelEnabled: true,
               bevelThickness: 0.05,
               bevelSize: 0.05,
@@ -98,47 +72,47 @@ const Cell = ({ position, cellData, isPlayerHere, isBotHere }) => {
         />
         <meshStandardMaterial
           color={getCellColor()}
-          metalness={0.3}
-          roughness={0.7}
+          roughness={0.8}
+          metalness={0.2}
         />
       </mesh>
 
-      {/* Special effects */}
-      {cellData.type === 'buff' && (
-        <group ref={glowRef} position={[0, effectHeight, 0]}>
-          <pointLight color="#4ade80" intensity={1.5} distance={2} />
-          <mesh>
-            <torusGeometry args={[0.3, 0.1, 16, 32]} />
-            <meshBasicMaterial color="#4ade80" transparent opacity={0.6} />
-          </mesh>
-        </group>
-      )}
-
-      {cellData.type === 'debuff' && (
-        <group ref={glowRef} position={[0, effectHeight, 0]}>
-          <pointLight color="#ef4444" intensity={1.5} distance={2} />
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <tetrahedronGeometry args={[0.3]} />
-            <meshBasicMaterial color="#ef4444" transparent opacity={0.6} />
-          </mesh>
-        </group>
-      )}
-
-      {cellData.type === 'goblin' && (
-        <group ref={glowRef} position={[0, effectHeight, 0]}>
-          <pointLight color="#eab308" intensity={1.5} distance={2} />
-          <mesh rotation={[0, timeRef.current, 0]}>
-            <cylinderGeometry args={[0.2, 0.3, 0.4, 6]} />
-            <meshBasicMaterial color="#eab308" transparent opacity={0.6} />
-          </mesh>
+      {/* Cell effects */}
+      {cellData.type !== 'normal' && (
+        <group ref={glowRef}>
+          <pointLight
+            color={getCellColor()}
+            intensity={0.5}
+            distance={2}
+            position={[0, 0.3, 0]}
+          />
+          {cellData.type === 'buff' && (
+            <mesh position={[0, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.2, 0.2, 0.1, 6]} />
+              <meshStandardMaterial color="#4ade80" transparent opacity={0.6} />
+            </mesh>
+          )}
+          {cellData.type === 'debuff' && (
+            <mesh position={[0, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.2, 0.2, 0.1, 3]} />
+              <meshStandardMaterial color="#ef4444" transparent opacity={0.6} />
+            </mesh>
+          )}
+          {cellData.type === 'goblin' && (
+            <mesh position={[0, 0.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.2, 0.2, 0.1, 4]} />
+              <meshStandardMaterial color="#eab308" transparent opacity={0.6} />
+            </mesh>
+          )}
         </group>
       )}
 
       {/* Cell number */}
       <Text
-        position={[0, 0.2, 0]}
-        fontSize={0.4}
-        color="white"
+        position={[0, 0.1, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        fontSize={0.3}
+        color="#ffffff"
         anchorX="center"
         anchorY="middle"
       >
