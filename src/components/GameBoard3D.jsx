@@ -20,6 +20,49 @@ const GameBoard3D = () => {
     setGameLog(prev => [message, ...prev.slice(0, 4)]);
   };
 
+  const handleCellEffect = (cell, isBot = false) => {
+    const target = isBot ? setBotHealth : setPlayerHealth;
+    
+    if (cell.type === 'goblin') {
+      const damage = Math.floor(Math.random() * 3) + 1;
+      target(prev => Math.max(0, prev - damage));
+      addToLog(`👺 Goblin attacks for ${damage} damage!`);
+    } else if (cell.type === 'buff' || cell.type === 'debuff') {
+      target(prev => Math.max(0, prev + cell.value));
+      addToLog(`${cell.effect}: ${cell.description}`);
+    }
+
+    // Check for player/bot death and reset if needed
+    if (playerHealth <= 0) {
+      setPlayerPosition(0);
+      setPlayerHealth(10);
+      addToLog('💀 Player died and respawned at start!');
+    }
+    if (botHealth <= 0) {
+      setBotPosition(0);
+      setBotHealth(10);
+      addToLog('💀 Bot died and respawned at start!');
+    }
+  };
+
+  const botTurn = () => {
+    const roll = Math.floor(Math.random() * 6) + 1;
+    addToLog(`🤖 Bot rolled a ${roll}!`);
+    
+    const newPosition = Math.min(49, botPosition + roll);
+    setBotPosition(newPosition);
+    
+    handleCellEffect(board[newPosition], true);
+    
+    // Check if bot won
+    if (newPosition >= 49) {
+      addToLog('🤖 Bot wins the game!');
+      return;
+    }
+    
+    setIsPlayerTurn(true);
+  };
+
   const rollDice = () => {
     if (!isPlayerTurn) return;
     const roll = Math.floor(Math.random() * 6) + 1;
@@ -27,6 +70,12 @@ const GameBoard3D = () => {
     
     const newPosition = Math.min(49, playerPosition + roll);
     setPlayerPosition(newPosition);
+    
+    // Check if player won
+    if (newPosition >= 49) {
+      addToLog('🏆 You win the game!');
+      return;
+    }
     
     handleCellEffect(board[newPosition]);
     setIsPlayerTurn(false);
