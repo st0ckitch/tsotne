@@ -1,307 +1,177 @@
 import React, { useState, useEffect } from 'react';
-import Card from './Card';
-import { cards } from '../data/cards';
+import { generateBoard } from '../data/cells';
 
 const GameBoard = () => {
-  const [playerDeck, setPlayerDeck] = useState([]);
-  const [enemyDeck, setEnemyDeck] = useState([]);
-  const [enemyHand, setEnemyHand] = useState([]);
-  const [enemyMana, setEnemyMana] = useState(1);
-  const [playerHand, setPlayerHand] = useState([]);
-  const [playerMana, setPlayerMana] = useState(1);
-  const [maxMana, setMaxMana] = useState(1);
-  const [playerHealth, setPlayerHealth] = useState(30);
-  const [enemyHealth, setEnemyHealth] = useState(30);
-  const [turn, setTurn] = useState(1);
-  const [playerField, setPlayerField] = useState([]);
-  const [enemyField, setEnemyField] = useState([]);
+  const [board, setBoard] = useState([]);
+  const [playerPosition, setPlayerPosition] = useState(0);
+  const [botPosition, setBotPosition] = useState(0);
+  const [playerHealth, setPlayerHealth] = useState(10);
+  const [botHealth, setBotHealth] = useState(10);
+  const [diceRoll, setDiceRoll] = useState(null);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+  const [gameLog, setGameLog] = useState([]);
+  const [isGameOver, setIsGameOver] = useState(false);
 
-  // Initialize game
   useEffect(() => {
-    const shuffledPlayerDeck = [...cards].sort(() => Math.random() - 0.5);
-    const shuffledEnemyDeck = [...cards].sort(() => Math.random() - 0.5);
-    
-    setPlayerDeck(shuffledPlayerDeck.slice(4));
-    setEnemyDeck(shuffledEnemyDeck.slice(4));
-    
-    // Draw initial hands
-    setPlayerHand(shuffledPlayerDeck.slice(0, 4));
-    setEnemyHand(shuffledEnemyDeck.slice(0, 4));
+    setBoard(generateBoard());
   }, []);
 
-  const drawCard = (isEnemy = false) => {
-    if (isEnemy) {
-      if (enemyDeck.length === 0) {
-        setEnemyHealth(prev => prev - Math.ceil(turn / 2));
-        return;
-      }
-      
-      if (enemyHand.length >= 10) {
-        setEnemyDeck(prev => prev.slice(1));
-        return;
-      }
-      
-      const [newCard, ...remainingDeck] = enemyDeck;
-      setEnemyHand(prev => [...prev, newCard]);
-      setEnemyDeck(remainingDeck);
+  const addToLog = (message) => {
+    setGameLog(prev => [message, ...prev.slice(0, 4)]);
+  };
+
+  const rollDice = () => {
+    return Math.floor(Math.random() * 6) + 1;
+  };
+
+  const handleGoblinAttack = () => {
+    const damage = Math.floor(Math.random() * 3) + 1;
+    if (isPlayerTurn) {
+      setPlayerHealth(prev => prev - damage);
+      addToLog(`🔪 Goblin attacks you for ${damage} damage!`);
     } else {
-      if (playerDeck.length === 0) {
-        setPlayerHealth(prev => prev - Math.ceil(turn / 2));
-        return;
-      }
-      
-      if (playerHand.length >= 10) {
-        setPlayerDeck(prev => prev.slice(1));
-        return;
-      }
-      
-      const [newCard, ...remainingDeck] = playerDeck;
-      setPlayerHand(prev => [...prev, newCard]);
-      setPlayerDeck(remainingDeck);
+      setBotHealth(prev => prev - damage);
+      addToLog(`🔪 Goblin attacks bot for ${damage} damage!`);
     }
   };
 
-  const playCard = (card, isEnemy = false) => {
-    if (isEnemy) {
-      if (card.mana > enemyMana) return false;
-      setEnemyMana(prev => prev - card.mana);
-      setEnemyHand(prev => prev.filter(c => c.id !== card.id));
-    } else {
-      if (!isPlayerTurn || card.mana > playerMana) return false;
-      setPlayerMana(prev => prev - card.mana);
-      setPlayerHand(prev => prev.filter(c => c.id !== card.id));
-    }
-    
-    if (card.type === 'minion') {
-      const field = isEnemy ? enemyField : playerField;
-      const setField = isEnemy ? setEnemyField : setPlayerField;
-      
-      if (field.length < 7) {
-        const playedCard = {
-          ...card,
-          currentHealth: card.health,
-          canAttack: false,
-          id: card.id + Date.now()
-        };
-        setField(prev => [...prev, playedCard]);
-        return true;
-      }
-    } else if (card.type === 'spell') {
-      handleSpellEffects(card, isEnemy);
-      return true;
-    }
-    return false;
-  };
-
-  const handleSpellEffects = (card, isEnemy) => {
-    switch (card.name) {
-      case 'Fireball':
-        if (isEnemy) {
-          setPlayerHealth(prev => prev - 6);
-        } else {
-          setEnemyHealth(prev => prev - 6);
-        }
-        break;
-      case 'Healing Rain':
-        if (isEnemy) {
-          setEnemyHealth(prev => Math.min(30, prev + 8));
-        } else {
-          setPlayerHealth(prev => Math.min(30, prev + 8));
-        }
-        break;
-      // ... other spell effects ...
+  const handleCellEffect = (cell) => {
+    if (cell.type === 'goblin') {
+      handleGoblinAttack();
+    } else if (cell.type === 'buff' || cell.type === 'debuff') {
+      const target = isPlayerTurn ? setPlayerHealth : setBotHealth;
+      target(prev => prev + cell.value);
+      addToLog(`${cell.effect}: ${cell.description}`);
     }
   };
 
-  const enemyTurn = () => {
-    // AI Logic
-    const playAICard = () => {
-      // Sort cards by mana cost
-      const playableCards = enemyHand
-        .filter(card => card.mana <= enemyMana)
-        .sort((a, b) => b.mana - a.mana); // Try to play highest mana cards first
-
-      for (const card of playableCards) {
-        if (card.type === 'spell') {
-          // Prioritize removal spells when player has minions
-          if (playerField.length > 0 && ['Fireball', 'Assassinate', 'Flame Strike'].includes(card.name)) {
-            if (playCard(card, true)) continue;
-          }
-          // Use healing when low on health
-          if (enemyHealth <= 15 && card.name === 'Healing Rain') {
-            if (playCard(card, true)) continue;
-          }
-        } else {
-          // Play minions prioritizing higher mana cost
-          if (playCard(card, true)) continue;
-        }
-      }
-    };
-
-    const attackWithMinions = () => {
-      // For each minion that can attack
-      enemyField.forEach(minion => {
-        if (minion.canAttack && !minion.frozen) {
-          // If there are taunts, must attack them first
-          const taunts = playerField.filter(m => m.effect?.includes('Taunt'));
-          
-          if (taunts.length > 0) {
-            // Attack random taunt
-            const target = taunts[Math.floor(Math.random() * taunts.length)];
-            attackMinion(minion, target, true);
-          } else if (playerField.length > 0) {
-            // 70% chance to attack minions if they exist
-            if (Math.random() < 0.7) {
-              const target = playerField[Math.floor(Math.random() * playerField.length)];
-              attackMinion(minion, target, true);
-            } else {
-              // Attack hero
-              attackHero(minion, true);
-            }
-          } else {
-            // Always attack hero if no minions
-            attackHero(minion, true);
-          }
-        }
-      });
-    };
-
-    // Execute AI turn
-    drawCard(true);
-    setEnemyMana(maxMana);
-    
-    // Slight delay for each action to make it feel more natural
-    setTimeout(() => {
-      playAICard();
-      setTimeout(() => {
-        attackWithMinions();
-        setTimeout(() => {
-          setIsPlayerTurn(true);
-          setPlayerMana(maxMana);
-        }, 500);
-      }, 500);
-    }, 500);
-  };
-
-  const attackMinion = (attacker, defender, isEnemy = false) => {
-    // Update health
-    defender.currentHealth -= attacker.attack;
-    attacker.currentHealth -= defender.attack;
-    
-    // Update boards
-    const updateField = (field) => 
-      field.map(card => 
-        card.id === attacker.id || card.id === defender.id
-          ? card
-          : { ...card }
-      ).filter(card => card.currentHealth > 0);
-
-    setPlayerField(prev => updateField(prev));
-    setEnemyField(prev => updateField(prev));
-    
-    attacker.canAttack = false;
-  };
-
-  const attackHero = (attacker, isEnemy = false) => {
-    if (isEnemy) {
-      setPlayerHealth(prev => prev - attacker.attack);
-    } else {
-      setEnemyHealth(prev => prev - attacker.attack);
+  const checkHealth = () => {
+    if (playerHealth <= 0) {
+      setPlayerPosition(0);
+      setPlayerHealth(10);
+      addToLog('💀 Player died and respawned at start!');
     }
-    attacker.canAttack = false;
+    if (botHealth <= 0) {
+      setBotPosition(0);
+      setBotHealth(10);
+      addToLog('💀 Bot died and respawned at start!');
+    }
   };
 
-  const endTurn = () => {
-    if (!isPlayerTurn) return;
+  const handlePlayerMove = () => {
+    if (!isPlayerTurn || isGameOver) return;
 
-    // Clear dead minions
-    setPlayerField(prev => prev.filter(minion => minion.currentHealth > 0));
-    setEnemyField(prev => prev.filter(minion => minion.currentHealth > 0));
+    const roll = rollDice();
+    setDiceRoll(roll);
+    addToLog(`🎲 You rolled a ${roll}!`);
 
-    // Reset minion states and increase max mana
-    setPlayerField(prev => prev.map(minion => ({
-      ...minion,
-      canAttack: true,
-      frozen: false
-    })));
+    const newPosition = Math.min(49, playerPosition + roll);
+    setPlayerPosition(newPosition);
 
+    if (newPosition === 49) {
+      setIsGameOver(true);
+      addToLog('🏆 You won the game!');
+      return;
+    }
+
+    handleCellEffect(board[newPosition]);
+    checkHealth();
     setIsPlayerTurn(false);
-    setTurn(prev => prev + 1);
-    
-    const newMaxMana = Math.min(10, maxMana + 1);
-    setMaxMana(newMaxMana);
-    setPlayerMana(0);
-    setEnemyMana(newMaxMana);
-    
-    drawCard();
-    setTimeout(enemyTurn, 1000);
+    setTimeout(botTurn, 1000);
+  };
+
+  const botTurn = () => {
+    const roll = rollDice();
+    addToLog(`🎲 Bot rolled a ${roll}!`);
+
+    const newPosition = Math.min(49, botPosition + roll);
+    setBotPosition(newPosition);
+
+    if (newPosition === 49) {
+      setIsGameOver(true);
+      addToLog('🤖 Bot won the game!');
+      return;
+    }
+
+    handleCellEffect(board[newPosition]);
+    checkHealth();
+    setIsPlayerTurn(true);
+  };
+
+  const resetGame = () => {
+    setBoard(generateBoard());
+    setPlayerPosition(0);
+    setBotPosition(0);
+    setPlayerHealth(10);
+    setBotHealth(10);
+    setDiceRoll(null);
+    setIsPlayerTurn(true);
+    setIsGameOver(false);
+    setGameLog([]);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-900 via-purple-800 to-purple-900 p-4">
-      {/* Enemy Information */}
-      <div className="flex justify-between items-center mb-4 bg-black bg-opacity-30 rounded-lg p-4">
-        <div className="text-white text-xl font-bold">
-          Enemy Health: {enemyHealth}
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 p-4 text-white">
+      {/* Game Status */}
+      <div className="mb-8 flex justify-between items-center">
+        <div className="text-xl">
+          <div>Player: HP {playerHealth} | Position {playerPosition}</div>
+          <div>Bot: HP {botHealth} | Position {botPosition}</div>
         </div>
-        <div className="text-amber-400 text-lg">
-          Cards in hand: {enemyHand.length}
-        </div>
-      </div>
-
-      {/* Enemy Field */}
-      <div className="flex gap-2 min-h-48 bg-black bg-opacity-20 p-4 rounded-lg mb-4 border border-purple-400">
-        {enemyField.map(card => (
-          <Card 
-            key={card.id} 
-            card={{...card, health: card.currentHealth}} 
-            isPlayable={false}
-            isInField={true}
-          />
-        ))}
-      </div>
-
-      {/* Player Field */}
-      <div className="flex gap-2 min-h-48 bg-black bg-opacity-20 p-4 rounded-lg mb-4 border border-purple-400">
-        {playerField.map(card => (
-          <Card 
-            key={card.id} 
-            card={{...card, health: card.currentHealth}} 
-            isPlayable={false}
-            isInField={true}
-          />
-        ))}
-      </div>
-
-      {/* Player Information and Controls */}
-      <div className="flex justify-between items-center mb-4 bg-black bg-opacity-30 rounded-lg p-4">
-        <div className="text-white">
-          <p className="text-xl font-bold">Health: {playerHealth}</p>
-          <p className="text-lg text-blue-300">Mana: {playerMana}/{maxMana}</p>
-          <p className="text-sm text-amber-400">Cards in deck: {playerDeck.length}</p>
-        </div>
-        <button 
-          className={`px-6 py-3 rounded-lg text-white font-bold
-            ${isPlayerTurn 
-              ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 cursor-pointer shadow-lg' 
-              : 'bg-gray-600 cursor-not-allowed'}`}
-          onClick={endTurn}
-          disabled={!isPlayerTurn}
+        <button
+          onClick={resetGame}
+          className="px-4 py-2 bg-red-600 rounded hover:bg-red-700"
         >
-          End Turn
+          Reset Game
         </button>
       </div>
 
-      {/* Player Hand */}
-      <div className="flex gap-2 justify-center mt-4 min-h-48">
-        {playerHand.map(card => (
-          <Card 
-            key={card.id} 
-            card={card} 
-            isPlayable={isPlayerTurn && card.mana <= playerMana}
-            onPlay={playCard}
-          />
+      {/* Game Board */}
+      <div className="grid grid-cols-10 gap-1 mb-8">
+        {board.map((cell, index) => (
+          <div
+            key={index}
+            className={`h-16 rounded flex items-center justify-center p-1 text-center text-sm
+              ${cell.type === 'buff' ? 'bg-green-700' : 
+                cell.type === 'debuff' ? 'bg-red-700' : 
+                cell.type === 'goblin' ? 'bg-yellow-700' :
+                'bg-gray-700'} 
+              ${playerPosition === index ? 'ring-2 ring-blue-500' : ''}
+              ${botPosition === index ? 'ring-2 ring-red-500' : ''}`}
+          >
+            <div>
+              {index + 1}
+              {cell.type !== 'normal' && (
+                <div className="text-xs">
+                  {cell.type === 'goblin' ? '👺' : cell.effect}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Controls */}
+      <div className="flex justify-center mb-8">
+        <button
+          onClick={handlePlayerMove}
+          disabled={!isPlayerTurn || isGameOver}
+          className={`px-6 py-3 rounded-lg text-white font-bold
+            ${isPlayerTurn && !isGameOver
+              ? 'bg-blue-600 hover:bg-blue-700'
+              : 'bg-gray-600 cursor-not-allowed'}`}
+        >
+          Roll Dice {diceRoll && `(Last: ${diceRoll})`}
+        </button>
+      </div>
+
+      {/* Game Log */}
+      <div className="bg-black bg-opacity-50 rounded p-4">
+        <h3 className="text-lg font-bold mb-2">Game Log:</h3>
+        {gameLog.map((log, index) => (
+          <div key={index} className="text-sm mb-1">
+            {log}
+          </div>
         ))}
       </div>
     </div>
